@@ -165,6 +165,7 @@ rental ||--|{ payment : "Оплачивается"
 
 ### DDL-Скрипт ###
 
+```sql
 CREATE TABLE categories (
   id SERIAL PRIMARY KEY,
   name VARCHAR(256) UNIQUE NOT NULL,
@@ -226,8 +227,7 @@ CREATE TABLE reviews (
   review_text TEXT,
   created_at DATE NOT NULL DEFAULT CURRENT_DATE
 );
-
-
+```
 
 ### Как проверялся скрипт ###
 через команду: "sqlite3 test_is_script_correct.db < dll.sql", а затем "sqlite3 test_is_script_correct.db" и в самой оболочке .tables и .schema users - все корректно

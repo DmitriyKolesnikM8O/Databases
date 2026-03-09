@@ -3,54 +3,54 @@
 
 ### Сущности ###
 1. Пользователь
-  - id - Primary Key 
-  - Имя
-  - Фамилия
-  - Отчество
-  - Логин
-  - Пароль
-  - телефон
-  - город
+    - id - Primary Key 
+    - Имя
+    - Фамилия
+    - Отчество
+    - Логин
+    - Пароль
+    - телефон
+    - город
 2. Инвентарь
-  - id - Primary Key
-  - название
-  - описание
-  - id_владельца - Foreign Key
-  - количество
-  - цена_аренды
+    - id - Primary Key
+    - название
+    - описание
+    - id_владельца - Foreign Key
+    - количество
+    - цена_аренды
 3. Заказ аренды
-  - id - Primary Key
-  - дата_начала
-  - дата_конца
-  - id_владельца - Foreign Key
-  - общая_стоимость (!Нарушает 3NF!)
-  - статус
+    - id - Primary Key
+    - дата_начала
+    - дата_конца
+    - id_владельца - Foreign Key
+    - общая_стоимость (!Нарушает 3NF!)
+    - статус
 4. Позиция аренды
-  - id аренды - Foreign Key
-  - id инвентаря - Foreign Key
+    - id аренды - Foreign Key
+    - id инвентаря - Foreign Key
   Primary Key = id аренды + id инвентаря
-  - количество
-  - цена_за_день_на_момент_заказа
+    - количество
+    - цена_за_день_на_момент_заказа
 5. Категория
-  - id - Primary Key
-  - название
-  - описание
+    - id - Primary Key
+    - название
+    - описание
 6. Отзыв
-  - id - Primary Key
-  - id_арендатора - Foreign Key
-  - id_инвентаря - Foreign Key
-  - оценка
-  - текст
-  - дата_создания
+    - id - Primary Key
+    - id_арендатора - Foreign Key
+    - id_инвентаря - Foreign Key
+    - оценка
+    - текст
+    - дата_создания
 7. Платеж
-  - id - Primary Key
-  - id_аренды - Foreign Key
-  - дата_оплаты
-  - статус
-  - сумма_оплаты
+    - id - Primary Key
+    - id_аренды - Foreign Key
+    - дата_оплаты
+    - статус
+    - сумма_оплаты
   
 
-Как это вообще должно работать: есть платформа. Чел регается, как владелец оборудования. В аккаунте он выставляет все свое оборудование, которое у него есть. Затем другой чел регается, как арендатор. Арендатор выбирает из представленного оборудования, бронирует его и оплачивает аренду. Есть отдельно карточка аренды, в которой прописаны все параметры: че арендовано, на сколько арендовано, кем, у кого, за сколько.
+**Как это вообще должно работать:** есть платформа. Чел регается, как владелец оборудования. В аккаунте он выставляет все свое оборудование, которое у него есть. Затем другой чел регается, как арендатор. Арендатор выбирает из представленного оборудования, бронирует его и оплачивает аренду. Есть отдельно карточка аренды, в которой прописаны все параметры: че арендовано, на сколько арендовано, кем, у кого, за сколько.
 
 ### Обоснование выбранных типов и структуры таблицы ### 
 
@@ -125,29 +125,29 @@ entity "Позиция аренды (Rental_Item)" as rental_item {
 }
 
 entity "Категория (Category)" as category {
-    * id : number <<generated>>
-    --
-    название : varchar(256) unique not null
-    описание : text
+  * id : number <<generated>>
+  --
+  название : varchar(256) unique not null
+  описание : text
 }
 
 entity "Отзыв (Review)" as review {
-    * id : number <<generated>>
-    --
-    * id_арендатора : number <<FK>> not null
-    * id_инвентаря : number <<FK>> not null
-    оценка : number not null
-    текст : text
-    дата_создания : date not null
+  * id : number <<generated>>
+  --
+  * id_арендатора : number <<FK>> not null
+  * id_инвентаря : number <<FK>> not null
+  оценка : number not null
+  текст : text
+  дата_создания : date not null
 }
 
 entity "Платеж (Payment)" as payment {
-    * id : number <<generated>>
-    --
-    id_аренды : number <<FK>> not null
-    дата_оплаты : date not null
-    статус : varchar (50) not null
-    сумма_оплаты : number not null
+  * id : number <<generated>>
+  --
+  id_аренды : number <<FK>> not null
+  дата_оплаты : date not null
+  статус : varchar (50) not null
+  сумма_оплаты : number not null
 }
 
 user ||--o{ equipment : "Сдает (Владелец)"
@@ -166,65 +166,65 @@ rental ||--|{ payment : "Оплачивается"
 ### DDL-Скрипт ###
 
 CREATE TABLE categories (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(256) UNIQUE NOT NULL,
-    description TEXT
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(256) UNIQUE NOT NULL,
+  description TEXT
 );
 
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    first_name VARCHAR(256) NOT NULL,
-    last_name VARCHAR(256),
-    patronymic VARCHAR(256),
-    login VARCHAR(256) UNIQUE NOT NULL,
-    password_hash VARCHAR(256) NOT NULL,
-    phone VARCHAR(20) UNIQUE NOT NULL,
-    city VARCHAR(100) NOT NULL
+  id SERIAL PRIMARY KEY,
+  first_name VARCHAR(256) NOT NULL,
+  last_name VARCHAR(256),
+  patronymic VARCHAR(256),
+  login VARCHAR(256) UNIQUE NOT NULL,
+  password_hash VARCHAR(256) NOT NULL,
+  phone VARCHAR(20) UNIQUE NOT NULL,
+  city VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE equipment (
-    id SERIAL PRIMARY KEY,
-    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
-    name VARCHAR(256) NOT NULL,
-    description TEXT,
-    price_per_day NUMERIC(10, 2) NOT NULL, 
-    total_quantity INTEGER NOT NULL CHECK (total_quantity >= 0) 
+  id SERIAL PRIMARY KEY,
+  owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+  name VARCHAR(256) NOT NULL,
+  description TEXT,
+  price_per_day NUMERIC(10, 2) NOT NULL, 
+  total_quantity INTEGER NOT NULL CHECK (total_quantity >= 0) 
 );
 
 CREATE TABLE rentals (
-    id SERIAL PRIMARY KEY,
-    renter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    total_amount NUMERIC(10, 2) NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    CHECK (end_date >= start_date) 
+  id SERIAL PRIMARY KEY,
+  renter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  total_amount NUMERIC(10, 2) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  CHECK (end_date >= start_date) 
 );
 
 CREATE TABLE rental_items (
-    rental_id INTEGER NOT NULL REFERENCES rentals(id) ON DELETE CASCADE,
-    equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    price_at_booking NUMERIC(10, 2) NOT NULL,
-    PRIMARY KEY (rental_id, equipment_id) 
+  rental_id INTEGER NOT NULL REFERENCES rentals(id) ON DELETE CASCADE,
+  equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  price_at_booking NUMERIC(10, 2) NOT NULL,
+  PRIMARY KEY (rental_id, equipment_id) 
 );
 
 CREATE TABLE payments (
-    id SERIAL PRIMARY KEY,
-    rental_id INTEGER NOT NULL REFERENCES rentals(id) ON DELETE CASCADE,
-    payment_amount NUMERIC(10, 2) NOT NULL CHECK (payment_amount > 0),
-    payment_date DATE NOT NULL,
-    status VARCHAR(50) NOT NULL
+  id SERIAL PRIMARY KEY,
+  rental_id INTEGER NOT NULL REFERENCES rentals(id) ON DELETE CASCADE,
+  payment_amount NUMERIC(10, 2) NOT NULL CHECK (payment_amount > 0),
+  payment_date DATE NOT NULL,
+  status VARCHAR(50) NOT NULL
 );
 
 CREATE TABLE reviews (
-    id SERIAL PRIMARY KEY,
-    renter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
-    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5), 
-    review_text TEXT,
-    created_at DATE NOT NULL DEFAULT CURRENT_DATE
+  id SERIAL PRIMARY KEY,
+  renter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5), 
+  review_text TEXT,
+  created_at DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
 

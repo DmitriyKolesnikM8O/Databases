@@ -59,19 +59,12 @@ INSERT INTO reviews (renter_id, equipment_id, rating, review_text) VALUES
 (4, 3, 4, 'Велосипед хороший, но скрипела цепь.');
 
 
-
-
-
-
-
-
-
--- Добавим еще категорий
+-- Еще категории
 INSERT INTO categories (name, description) VALUES 
 ('Водный спорт', 'Сап-борды, байдарки и спасательные жилеты'),
 ('Активные игры', 'Мячи, ракетки для тенниса и бадминтона');
 
--- Добавим еще 10 пользователей из разных городов
+-- Еще 10 пользователей
 INSERT INTO users (first_name, last_name, login, password_hash, phone, city) VALUES 
 ('Сергей', 'Попов', 'serg_pro', 'hash1', '+79112223344', 'Екатеринбург'),
 ('Мария', 'Лебедева', 'masha_sport', 'hash2', '+79223334455', 'Сочи'),
@@ -84,8 +77,7 @@ INSERT INTO users (first_name, last_name, login, password_hash, phone, city) VAL
 ('Михаил', 'Орлов', 'misha_water', 'hash9', '+79990001122', 'Сочи'),
 ('Наталья', 'Соколова', 'nat_play', 'hash10', '+79001112234', 'Екатеринбург');
 
-
--- Раздадим товары разным владельцам
+-- раздача товаров
 INSERT INTO equipment (owner_id, category_id, name, description, price_per_day, total_quantity) VALUES 
 (7, 4, 'Сап-борд Gladiator', 'Надувной, полный комплект', 2000.00, 4),
 (7, 4, 'Спасательный жилет M', 'Ярко-оранжевый, до 80кг', 300.00, 10),
@@ -100,7 +92,7 @@ INSERT INTO equipment (owner_id, category_id, name, description, price_per_day, 
 (1, 5, 'Баскетбольный мяч Spalding', 'Профессиональный, кожаный', 400.00, 5);
 
 
--- Создадим еще 10 заказов для статистики
+-- новые заказы
 INSERT INTO rentals (renter_id, start_date, end_date, status) VALUES 
 (8, '2024-06-01', '2024-06-05', 'Завершен'),
 (9, '2024-06-10', '2024-06-12', 'Завершен'),
@@ -113,7 +105,7 @@ INSERT INTO rentals (renter_id, start_date, end_date, status) VALUES
 (2, '2024-09-01', '2024-09-03', 'Завершен'),
 (3, '2024-09-10', '2024-09-12', 'Завершен');
 
--- Состав заказов (Rental_Items)
+-- Состав заказов
 INSERT INTO rental_items (rental_id, equipment_id, quantity, price_at_booking) VALUES 
 (3, 5, 2, 2000.00), -- Сапы
 (4, 7, 1, 2500.00), -- Велик Скотт
@@ -126,7 +118,7 @@ INSERT INTO rental_items (rental_id, equipment_id, quantity, price_at_booking) V
 (11, 14, 1, 3500.00), -- Байдарка
 (12, 15, 1, 400.00);  -- Мяч
 
--- Платежи (посчитай суммы примерно: цена * кол-во * дни)
+-- Платежи
 INSERT INTO payments (rental_id, payment_amount, payment_date, status) VALUES 
 (3, 16000.00, '2024-06-01', 'Успешно'),
 (4, 5000.00, '2024-06-10', 'Успешно'),
@@ -139,7 +131,7 @@ INSERT INTO payments (rental_id, payment_amount, payment_date, status) VALUES
 (11, 7000.00, '2024-09-01', 'Успешно'),
 (12, 800.00, '2024-09-10', 'Успешно');
 
--- Добавим еще отзывов, чтобы средний рейтинг был разным
+-- Еще отзывы
 INSERT INTO reviews (renter_id, equipment_id, rating, review_text) VALUES 
 (8, 5, 5, 'Сапы просто супер, новые и чистые!'),
 (9, 7, 5, 'Велосипед пушка, проехал 50км без проблем'),

@@ -3,8 +3,7 @@ er-diagram взята из лабы 1
 ## 1. Создание схемы базы данных
 
 schema.sql - там DDL-скрипт.
-Использую sqlite3, чтобы не замарачиваться.
-Команды следующие:
+Команды (шоб не забыть):
 - sqlite3 rental.db
 - .read schema.sql
 - .tables
@@ -41,7 +40,28 @@ WHERE name = 'Велосипед GT Avalanche';
 UPDATE rentals 
 SET status = 'Завершен' 
 WHERE id = 1;
+
+UPDATE equipment 
+SET 
+    price_per_day = price_per_day * 0.8,
+    description = description || ' [ВЕСЕННЯЯ СКИДКА -20%]'
+WHERE category_id = 1 
+  AND total_quantity > 5
+  AND owner_id IN (SELECT id FROM users WHERE city = 'Москва');
+
+
+
+UPDATE equipment 
+SET price_per_day = price_per_day + 500
+WHERE id IN (
+    SELECT equipment_id 
+    FROM reviews 
+    GROUP BY equipment_id 
+    HAVING AVG(rating) > 4.5
+);
 ```
+
+
 
 - удаление
 ```sql
@@ -175,3 +195,116 @@ JOIN equipment e ON ri.equipment_id = e.id;
 ```
 
 
+
+
+
+
+
+### Запросы просто чтобы были
+
+- список всех пользователей (имя, фамилию и телефон), которые живут в городе 'Москва'
+```code
+select first_name, last_name, phone from users where city='Москва';
+```
+
+- названия всех товаров (name) и их цену за день (price_per_day), отсортировав их от самых дорогих к самым дешевым
+```code
+select name, price_per_day as price from equipment order by price desc;
+```
+
+- в таблице инвентаря (equipment) все товары, в названии которых встречается слово 'Велосипед' 
+```code
+select name, description from equipment where name like 'Велосипед%';
+```
+
+- названия всех товаров (equipment.name) и рядом — название их категории (categories.name). Отсортируй результат по названию категории
+```code
+select e.name as equip_name, c.name as category_name from equipment as e join categories as c on e.category_id= c.id order by category_name;
+```
+
+- имя и фамилию владельца, а также название товара, который он сдает. Нас интересуют только те товары, цена которых больше 1000 рублей
+```code
+select u.first_name as owner_name, u.last_name as owner_surname, e.name as equip_name from users as u join equipment as e on e.owner_id=u.id where e.price_per_day > 1000;
+```
+
+- список всех аренд: ID аренды (rentals.id), дату начала (start_date) и логин пользователя, который совершил эту аренду
+```code
+select r.id, r.start_date, u.login from rentals as r join users as u on u.id=r.renter_id;
+```
+
+- имя, фамилию пользователя и количество (COUNT) товаров, которые он сдает в аренду. Не забудь сгруппировать результат по пользователю 
+```code
+select u.first_name as name, u.last_name as surname, count(e.name) as count_equip from users as u join equipment as e on e.owner_id=u.id group by u.id;
+```
+
+- В таблице payments лежат платежи. Выведи rental_id и общую сумму всех успешных платежей (SUM(payment_amount)) для каждого заказа. Отфильтруй только те платежи, где status = 'Успешно'.
+```code
+select r.id, sum(p.payment_amount) from rentals as r join payments as p on p.rental_id=r.id where p.status='Успешно' group by r.id;
+```
+
+- Для каждого товара в таблице reviews посчитай его средний рейтинг (AVG(rating)). Выведи название товара (equipment.name) и его среднюю оценку.
+```code
+select e.name, avg(r.rating) as equip_name from equipment as e join reviews as r on r.equipment_id=e.id group by e.name;
+```
+
+- Выведи названия категорий (categories.name), в которых больше 3 товаров.
+```code
+select c.name from categories as c join equipment as e on e.category_id=c.id group by c.name having count(e.name) > 3;
+```
+
+-  Выведи название одного самого дорогого товара (с максимальным price_per_day) во всей базе.
+```code
+SELECT name FROM equipment ORDER BY price_per_day DESC LIMIT 1;
+```
+
+- Выведи список всех аренд (ID аренды и даты), которые длились дольше 3 дней.
+```code
+SELECT id, start_date, end_date FROM rentals WHERE (julianday(end_date) - julianday(start_date)) > 3;
+```
+
+** Если условие можно проверить для одной строки (без суммы/среднего по группе) — используй WHERE. Это работает быстрее **
+
+- Выведи имя и фамилию пользователей, которые потратили на аренду суммарно больше 5000 рублей.
+```code
+select u.first_name, u.last_name from users as u join rentals as r on r.renter_id=u.id join payments as p on p.rental_id=r.id group by u.id having sum(p.payment_amount) > 5000;
+```
+
+- Выведи имя владельца (users.first_name) и средний рейтинг всех его товаров.
+```code
+select u.first_name, avg(r.rating) from users as u left join equipment as e on e.owner_id=u.id left join reviews as r on r.equipment_id=e.id group by u.id;
+```
+
+- Выведи название категории и общую сумму стоимости всех товаров в этой категории (цена * количество).
+```code
+SELECT c.name, SUM(e.price_per_day * e.total_quantity) as category_value
+FROM categories as c
+JOIN equipment as e ON e.category_id = c.id
+GROUP BY c.id;
+
+```
+
+- товары, которые ни раз ну арендовали
+```code
+SELECT e.id, e.name, c.name as category
+FROM equipment e
+JOIN categories c ON e.category_id = c.id
+LEFT JOIN rental_items ri ON e.id = ri.equipment_id
+WHERE ri.rental_id IS NULL;
+```
+
+- что берут чаще всего
+```code
+SELECT e.name, COUNT(ri.equipment_id) as rent_count
+FROM equipment e
+JOIN rental_items ri ON e.id = ri.equipment_id
+GROUP BY e.id
+ORDER BY rent_count DESC;
+```
+
+- Где кто зареган
+```code
+SELECT city, COUNT(*) as users_count
+FROM users
+GROUP BY city
+ORDER BY users_count DESC;
+```

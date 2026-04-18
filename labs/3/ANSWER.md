@@ -1,8 +1,5 @@
 ## 2
 
-
-
-
 - Функция, которая возвращает полную стоимость аренды. 
 ```sql
 CREATE OR REPLACE FUNCTION get_rental_total_price(p_rental_id INTEGER)
@@ -11,22 +8,18 @@ DECLARE
     v_total NUMERIC := 0;
     v_days INTEGER;
 BEGIN
-    -- 1. Проверяем, существует ли такая аренда
     IF NOT EXISTS (SELECT 1 FROM rentals WHERE id = p_rental_id) THEN
         RAISE EXCEPTION 'Аренда с ID % не найдена', p_rental_id;
     END IF;
 
-    -- 2. Считаем количество дней (разница дат + 1, чтобы день в день считался как 1 день)
     SELECT (end_date - start_date) + 1 INTO v_days 
     FROM rentals 
     WHERE id = p_rental_id;
 
-    -- 3. Считаем сумму всех позиций внутри этой аренды
     SELECT SUM(price_at_booking * quantity) INTO v_total
     FROM rental_items
     WHERE rental_id = p_rental_id;
 
-    -- Если товаров в аренде еще нет, SUM вернет NULL, превращаем в 0
     RETURN COALESCE(v_total, 0) * v_days;
 
 EXCEPTION
@@ -37,7 +30,6 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-// select get_rental_total_price(1);
 
 
 - процедура для добавления товара в существующую аренду.
@@ -52,8 +44,28 @@ AS $$
 DECLARE
     v_current_price NUMERIC;
     v_stock INTEGER;
+    v_rental_status VARCHAR;
 BEGIN
-    -- 1. Проверяем наличие товара и берем его цену
+
+    SELECT status INTO v_rental_status
+    FROM rentals
+    WHERE id = p_rental_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Аренды с ID % не существует', p_rental_id;
+    END IF;
+
+    IF v_rental_status != 'Новый' THEN
+        RAISE EXCEPTION 'Бизнес-ошибка: добавление в НЕ новую аренду';
+    END IF;
+
+
+
+    IF p_quantity <= 0 THEN
+        RAISE EXCEPTION 'Количество должно быть положительным';
+    END IF;
+
+    
     SELECT price_per_day, total_quantity INTO v_current_price, v_stock 
     FROM equipment 
     WHERE id = p_equipment_id;
@@ -62,24 +74,20 @@ BEGIN
         RAISE EXCEPTION 'Товар с ID % не существует', p_equipment_id;
     END IF;
 
-    -- 2. Проверяем бизнес-правило (наличие на складе)
     IF p_quantity > v_stock THEN
         RAISE EXCEPTION 'Недостаточно товара (ID %). Запрошено: %, В наличии: %', 
                         p_equipment_id, p_quantity, v_stock;
     END IF;
 
-    -- 3. Пробуем вставить запись
     INSERT INTO rental_items (rental_id, equipment_id, quantity, price_at_booking)
     VALUES (p_rental_id, p_equipment_id, p_quantity, v_current_price);
 
     RAISE NOTICE 'Товар успешно добавлен в аренду №%', p_rental_id;
 
 EXCEPTION
-    -- Перехватываем ошибку внешнего ключа (если p_rental_id не существует)
     WHEN foreign_key_violation THEN
         RAISE EXCEPTION 'Бизнес-ошибка: Аренды с ID % не существует в системе.', p_rental_id;
     
-    -- Перехватываем ошибку уникальности (если такой товар уже есть в этой аренде)
     WHEN unique_violation THEN
         RAISE EXCEPTION 'Бизнес-ошибка: Товар % уже добавлен в аренду %. Используйте UPDATE для изменения количества.', 
                         p_equipment_id, p_rental_id;
@@ -94,6 +102,32 @@ $$;
 // CALL add_item_to_rental(1, 1, 100); - ошибка, так как столько лыж нет
 // CALL add_item_to_rental(999, 1, 1); - ошибка, так как такой аренды не существует
 
+- функция: общее количество аренд, который этот пользователь когда-либо оформлял
+```sql
+CREATE OR REPLACE FUNCTION get_total_rentals_by_userId(user_id INTEGER)
+RETURNS INT AS $$
+DECLARE
+    total_rentals INT := 0;
+BEGIN
+
+    IF NOT EXISTS (SELECT 1 FROM users WHERE id=user_id) THEN
+        RAISE EXCEPTION 'Пользователя с ID % не существует', user_id;
+    END IF;
+
+    SELECT COUNT(*) INTO total_rentals
+    FROM rentals
+    WHERE renter_id=user_id;
+
+    RETURN total_rentals;
+    
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Ошибка в функции get_total_rentals_by_userId: %', SQLERRM;
+        RETURN 0;
+END;
+$$ LANGUAGE plpgsql;
+```
 
 ## 3
 
@@ -105,12 +139,10 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_available INTEGER;
 BEGIN
-    -- Получаем общее количество товара из справочника
     SELECT total_quantity INTO v_available 
     FROM equipment 
     WHERE id = NEW.equipment_id;
 
-    -- Если запрашиваемое количество больше того, что есть в принципе
     IF NEW.quantity > v_available THEN
         RAISE EXCEPTION 'Бизнес-правило нарушено: Недостаточно товара (ID %). В наличии: %, Запрошено: %', 
                         NEW.equipment_id, v_available, NEW.quantity;
@@ -129,12 +161,47 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_check_stock_availability();
 ```
 
+- улучшенный предыдущий триггер: проверяет реальное остаточное количество товара
+```sql
+CREATE OR REPLACE FUNCTION fn_check_stock_availability()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_available INTEGER;
+    v_in_rental INTEGER;
+BEGIN
+    SELECT total_quantity INTO v_available 
+    FROM equipment 
+    WHERE id = NEW.equipment_id;
+
+    SELECT COALESCE(SUM(ri.quantity), 0) INTO v_in_rental
+    FROM rental_items ri
+    JOIN rentals r ON ri.rental_id=r.id
+    WHERE ri.equipment_id=NEW.equipment_id AND r.status IN ('Новый', 'В процессе', 'Оплачен') AND ri.id != NEW.id;
+
+    IF NEW.quantity > (v_available - v_in_rental) THEN
+        RAISE EXCEPTION 'Бизнес-правило нарушено: Недостаточно товара (ID %). В наличии: %, Запрошено: %', 
+                        NEW.equipment_id, v_available, NEW.quantity;
+    END IF;
+
+    RETURN NEW;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Ошибка в триггере fn_check_stock_availability: %', SQLERRM;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_stock_before_rental
+BEFORE  UPDATE ON rental_items
+FOR EACH ROW
+EXECUTE FUNCTION fn_check_stock_availability();
+```
+
 - защита уже завершенного заказа
 ```sql
 CREATE OR REPLACE FUNCTION fn_protect_finished_rental()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF OLD.status = 'Завершен' THEN
+    IF TG_OP = 'UPDATE' AND OLD.status = 'Завершен' THEN
         RAISE EXCEPTION 'Бизнес-ошибка: Заказ №% уже завершен. Изменение данных запрещено!', OLD.id;
     END IF;
 
@@ -150,7 +217,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_lock_finished_rental
-BEFORE UPDATE ON rentals
+BEFORE INSERT OR UPDATE ON rentals
 FOR EACH ROW
 EXECUTE FUNCTION fn_protect_finished_rental();
 ```
